@@ -18,6 +18,7 @@ except:
 # Getting the sheet where data has to be inserted
 
 def googleworkbook():
+    workbook = None
     try:
         workbook = client.open(config.get('googleworkbookname'))
         print("Workbook fetch successful")
