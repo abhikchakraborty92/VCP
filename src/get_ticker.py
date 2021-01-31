@@ -4,7 +4,7 @@ import json
 import datetime
 import hashlib
 import time
-from googleauthenticate import workbook
+from src.googleauthenticate import workbook   # writing like this to enable __init__ file
 
 # Reading configuration
 config = json.loads(open('config/config.json').read())
