@@ -16,9 +16,13 @@ try:
 except:
     print('Authentication Failed')
 # Getting the sheet where data has to be inserted
-try:
-    workbook = client.open(config.get('googleworkbookname'))
-    print("Workbook fetch successful")
-except Exception as e:
-    print(e)
+
+def googleworkbook():
+    try:
+        workbook = client.open(config.get('googleworkbookname'))
+        print("Workbook fetch successful")
+    except Exception as e:
+        print(e)
+
+    return workbook
 

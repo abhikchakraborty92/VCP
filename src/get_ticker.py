@@ -4,7 +4,7 @@ import json
 import datetime
 import hashlib
 import time
-from src.googleauthenticate import workbook   # writing like this to enable __init__ file
+from src.googleauthenticate import googleworkbook   # writing like this to enable __init__ file
 
 # Reading configuration
 config = json.loads(open('config/config.json').read())
@@ -16,6 +16,7 @@ tickercodes = config.get('tickercodes')
 # Getting the google sheet object into which the data has to be inserted
 rowlimit = config.get('googlesheetrowlimit')
 columns = config.get('googlesheetcolumns')
+workbook = googleworkbook()
 
 def getworkbooksheet():
     allsheets = workbook.fetch_sheet_metadata().get('sheets')
