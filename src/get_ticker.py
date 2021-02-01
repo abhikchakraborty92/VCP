@@ -2,97 +2,56 @@ import pandas as pd
 from requests import get
 import json
 import datetime
-import hashlib
 import time
-from src.googleauthenticate import googleworkbook   # writing like this to enable __init__ file
 
-# Reading configuration
+
+# Importing the packages in a try block because some local environments need the src. format and the others work with default
+try:
+    from src.helperfunctions import *
+    from src.googleauthenticate import googleworkbook   # writing like this to enable __init__ file
+except:
+    from helperfunctions import *
+    from googleauthenticate import googleworkbook
+
+# Reading configuration from the config folder. Replace the file location whenever there is new file/folder
 config = json.loads(open('config/config.json').read())
 
-#Getting ticker URL
+# Getting ticker URL from the configuration file. The ticker URL has been provided by www.wazirx.com 
 tickerurl = config.get('market').get('ticker').get('url')
 tickercodes = config.get('tickercodes')
 
-# Getting the google sheet object into which the data has to be inserted
-rowlimit = config.get('googlesheetrowlimit')
-columns = config.get('googlesheetcolumns')
+# Getting google worksheet to write the data
 workbook = googleworkbook()
 
-def getworkbooksheet():
-    allsheets = workbook.fetch_sheet_metadata().get('sheets')
-    for sheetobj in allsheets:
-        sheet = workbook.get_worksheet(sheetobj.get('properties').get('index'))
-        try:
-            if len(sheet.col_values(1))+len(tickercodes)<=rowlimit:
-                return sheet
-            else:
-                 print(f'`{sheet.title}` sheet over limit. Ignoring...\n')
-
-        except:
-            return sheet
-    
-    print('Generating new worksheet...')
-    sheet = workbook.add_worksheet('New_'+datetime.datetime.now().strftime('%Y%m%d%H%M%S'),100,len(columns))
-    return sheet
+# Getting ticker response
+refreshtimestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M') # Getting refresh timestamp to insert the data along with it
+tickerresponse = get(tickerurl)         # Getting raw response
+tickerdatadict = {}  # Ticker dictionary to store the API response for further processing
 
 
-while True:
-    # Getting ticker response
-    refreshtimestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M')
-    tickerresponse = get(tickerurl)
-    tickerdatadict = {}
 
-    if tickerresponse.status_code == 200:
-        tickeroutput = json.loads(tickerresponse.text)
+# Checking if the response received from the API is a success with status code 200 and proceeding with the next steps
+if tickerresponse.status_code == 200:
+    tickeroutput = json.loads(tickerresponse.text)
 
-        for ticker in tickercodes:
-            tickerdatadict[ticker[0]]=tickeroutput.get(ticker[0])
-
-    # Ticker data parsing functions
-
-    # Generate unique key for each row
-    def generatekey(tickercode):
-        codestring = (tickercode+str(datetime.datetime.now())).encode()
-        return hashlib.md5(codestring).hexdigest()[:-10]
-
-    # Parse ticker response to data for the  tickers into rows
-    def tickerparse(output,tickercode,currname):
-        try:
-            parse = {
-                "insertid":str(generatekey(tickercode)),
-                "crypt_curr_name":currname.upper(),
-                "tickercode" : tickercode.upper(),
-                "base_unit" : output.get('base_unit'),
-                "quote_unit" : output.get('quote_unit'),
-                "low_price_24_hr" : float(output.get('low')),
-                "high_price_24_hr" : float(output.get('high')),
-                "last_trade_price" : float(output.get('last')),
-                "mkt_open_price" :float(output.get('open')),
-                "trade_volume_24_hr" : float(output.get('volume')),
-                "top_sell_price" : float(output.get('sell')),
-                "top_buy_price" : float(output.get('buy')),
-                "name" : output.get('name'),
-                "ticker_timestamp" : datetime.datetime.fromtimestamp(output.get('at')).strftime('%Y-%m-%d %H:%M'),
-                "refresh_timestamp" : refreshtimestamp,
-                "timezone": str(datetime.datetime.now().astimezone().tzinfo)
-            }
-
-            # Inserting into google sheet
-            valuelist = list(parse.values())
-            return valuelist
-        
-        except EnvironmentError as e:
-            return e
-
-        
+    # Getting tickers from the tickercodes list of the config file and fetching relevant data out of the API response for our ticker
+    for ticker in tickercodes:
+        tickerdatadict[ticker[0]]=tickeroutput.get(ticker[0])
 
     # Generating dataset for the tickers
-    ValuesToInsert = []
+    ValuesToInsert = []   # List that will hold all our ticker data values. Each ticker will have a list of its values  which would be appended into this
+    
+    
     for ticker in tickercodes:
-        ValuesToInsert.append(tickerparse(tickerdatadict.get(ticker[0]),ticker[0],ticker[1]))
+        ValuesToInsert.append(tickerparse(tickerdatadict.get(ticker[0]),ticker[0],ticker[1],refreshtimestamp)) # Parsing and generating the ticker value list and appending it into the master list
 
-    sheet = getworkbooksheet()
+    # Getting the google sheet object into which the data has to be inserted
+    rowlimit = config.get('googlesheetrowlimit')  # Getting the row limit to ensure limited data is loaded into a sheet and it doesn't overflow the sheet limit
+    columns = config.get('googlesheetcolumns')   # Getting the list of column headers to add if the sheet doesn't have a column header. This will happen when a new sheet is generated to insert the data
 
+    sheet = getworkbooksheet(workbook,tickercodes,rowlimit,columns) # Getting the sheet where data has to be inserted
+
+    # Checking if the first row, first cell is equal to the value of our first column. If not, we insert the header column
     try:
         if sheet.cell(1,1).value == columns[0]:
             pass
@@ -101,6 +60,7 @@ while True:
     except Exception as e:
         print(e)
 
+    # Inserting all the values of the ticker into the sheet
     sheet.append_rows(ValuesToInsert)
 
-    time.sleep(30)
+    print(f'Data inserted on {refreshtimestamp}')
