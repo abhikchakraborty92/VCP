@@ -10,26 +10,31 @@ def getworkbooksheet(workbook,tickercodes,rowlimit,columns):
     
     # Checking worksheets to see where the data can be inserted
     for sheetobj in allsheets:
-        sheet = workbook.get_worksheet(sheetobj.get('properties').get('index'))
+
+        # sheetobj is the list of all worksheets in the google workbook. The 'index' property tells the index number of a specific 
+        # sheet and we are using the get_worksheet function to activate that sheet
+        
+        sheet = workbook.get_worksheet(sheetobj.get('properties').get('index'))  # Index starts from 0 till n-1 where n is total number of sheets
         try:
-            if len(sheet.col_values(1))+len(tickercodes)<=rowlimit:
+            if len(sheet.col_values(1))+len(tickercodes)<=rowlimit:   # Here, len(sheet.col_values(1)) counts total number of filled rows and we check 
+                # if adding new rows where total rows = total tickers would be more or less than the row limit of the sheet
                 print(f'Inserting data into the sheet: `{sheet.title}`... ')
                 return sheet
             else:
-                 print(f'`{sheet.title}` sheet over limit. Ignoring... ')
+                 print(f'`{sheet.title}` sheet over limit. Ignoring... ') # If the sheet limit threshold will breach due to insertion of records, sheet is ignored
 
         except:
-            return sheet
+            pass   # A try block is introduced because sometimes API was throwing errors. A new sheet is looked into/created in this case
     
     # If all the sheets are over limit, generating new worksheet
     print('Generating new worksheet...')
     sheet = workbook.add_worksheet('TickerData_'+datetime.datetime.now().strftime('%Y%m%d%H%M%S'),len(tickercodes)+1,len(columns))
     return sheet
 
-# Generate unique key for each row
+# Generate unique key for each row to enable primary key function if data ever moves to a database
 def generatekey(tickercode):
     codestring = (tickercode+str(datetime.datetime.now())).encode()
-    return hashlib.md5(codestring).hexdigest()[:-10]
+    return hashlib.md5(codestring).hexdigest()[-10:]
 
 # Parse ticker response to data for the  tickers into rows
 def tickerparse(output,tickercode,currname,refreshtimestamp):
@@ -53,7 +58,7 @@ def tickerparse(output,tickercode,currname,refreshtimestamp):
             "timezone": str(datetime.datetime.now().astimezone().tzinfo)
         }
 
-        # Inserting into google sheet
+        # Creating a list of values for the ticker
         valuelist = list(parse.values())
         return valuelist
     
