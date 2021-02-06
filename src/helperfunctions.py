@@ -58,7 +58,7 @@ def tickerparse(output,tickercode,currname,refreshtimestamp):
             "timezone": str(datetime.datetime.now().astimezone().tzinfo)
         }
 
-        # Creating a list of values for the ticker
+        # Creating a list of values for the tickers
         valuelist = list(parse.values())
         return valuelist
     
